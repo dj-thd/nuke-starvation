@@ -5,6 +5,69 @@
 This tool implements TCP starvation attack.
 You can load test your servers given hostname and port. Requires Linux OS and root privileges (need to handle some iptables rules).
 
+## Explaination
+
+A TCP normal connection packet flow is as follows:
+
+- *Client* sends a TCP *SYN* (SYNchronize) packet to *Server*
+- *Server* receives *Client*'s *SYN*
+
+- *Server* sends a *SYN-ACK* (SYNchronize ACKnowledgement) packet to *Client*
+- *Client* receives *Server*'s *SYN-ACK*
+
+- *Client* sends *ACK* (ACKnowledge) packet to *Server*
+- *Server* receives *Client*'s *ACK*
+
+TCP connection is *ESTABLISHED*
+*Client* and *Server* interchange data and *ACK* packets
+*Client* wants to close connection, then:
+
+- *Client* sends *FIN* (FINish) packet to *Server*
+- *Server* receives *Client*'s *FIN*
+
+- *Server* sends a *FIN-ACK* (FINish ACKnowledge) packet to *Client*
+- *Client* receives *Server*'s *FIN-ACK*
+
+TCP connection is *CLOSED*
+
+TCP starvation attack works by blocking transmission of *FIN* and *RST* packets from client to server,
+opening as many connections as possible and then closing it from the point of view of the client,
+as the client wont receive the *FIN-ACK* packets from the server, we lower the kernel TCP timeout values
+to recycle connections as soon as possible while the server thinks these connections are still open.
+
+A TCP starvation attack packet flow is as follows:
+
+- *Client* sends a TCP *SYN* (SYNchronize) packet to *Server*
+- *Server* receives *Client*'s *SYN*
+
+- *Server* sends a *SYN-ACK* (SYNchronize ACKnowledgement) packet to *Client*
+- *Client* receives *Server*'s *SYN-ACK*
+
+- *Client* sends *ACK* (ACKnowledge) packet to *Server*
+- *Server* receives *Client*'s *ACK*
+
+TCP connection is *ESTABLISHED*
+*Client* wants to close connection, then:
+
+- *Client* OS try to send *FIN* (FINish) packet to *Server*, but is blocked by iptables
+- *Server* dont receive anything, letting the connection *ESTABLISHED*
+
+- *Client*'s connection is in *FIN_WAIT1* state
+- After short timeout that we have tuned at the client, *Client*'s connection is *CLOSED* and resources are deallocated
+- *Server*'s connection is still *ESTABLISHED*
+- After *Server*'s established connection timeout or application timeout, *Server* close the connection
+
+On unprotected servers this cause a big resource allocation to serve that requests, causing high CPU and
+memory usage rendering the service unusable and in some cases killing the service application by the OS
+out of memory process killer when the server runs out of memory. If the server is not properly protected,
+a client can bring it down with a very little bandwidth usage.
+
+This is not the same as a classic SYN flood, as the full 3-way TCP handshake is completed and from the
+point of view of the server these are legit open TCP connections.
+
+This can be mitigated by setting hard limits on simultaneous open TCP connections per client and TCP
+connection rate per client, as well as tuning TCP timeouts with more aggressive values.
+
 ## Mitigation
 
 ### pfsense
