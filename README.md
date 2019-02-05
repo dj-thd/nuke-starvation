@@ -96,7 +96,7 @@ On WAN->LAN NAT rules, set reasonable connection rates/second per host, and max 
 
 Limit new connections per second/client ip to a reasonable value:
 ```
-iptables -I INPUT -p tcp --syn -m hashlimit --hashlimit-above 20/s --hashlimit-burst 30 --hashlimit-mode srcip --hashlimit-htable-expire 60000 --hashlimit-name antistarvation-j DROP
+iptables -I INPUT -p tcp --syn -m hashlimit --hashlimit-above 20/s --hashlimit-burst 30 --hashlimit-mode srcip --hashlimit-htable-expire 60000 --hashlimit-name antistarvation -j DROP
 ```
 
 Limit number of simultaneous established connections per client to a reasonable value:
