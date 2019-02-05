@@ -106,4 +106,5 @@ iptables -I INPUT -p tcp --syn --dport 80 -m connlimit --connlimit-above 200 -j 
 
 ## TODOs
 
-- Save current kernel parameters and restore them on exit
+- Save current kernel parameters and restore them on exit. Meanwhile you can reboot your computer after using the script to restore your original parameters,
+  or if you are really really annoyed about the lacking of this feature, implement it yourself and do a pull request :)
