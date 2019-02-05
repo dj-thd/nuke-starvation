@@ -106,5 +106,4 @@ iptables -I INPUT -p tcp --syn -m connlimit --connlimit-above 200 -j DROP
 
 ## TODOs
 
-- Save current kernel parameters and restore them on exit. Meanwhile you can reboot your computer after using the script to restore your original parameters,
-  or if you are really really annoyed about the lacking of this feature, implement it yourself and do a pull request :)
+- Parse arguments to add some options like force number of threads, number of concurrent connections, and whether to send which type of payload.

