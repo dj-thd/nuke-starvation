@@ -9,53 +9,56 @@ You can load test your servers given hostname and port. Requires Linux OS and ro
 
 A TCP normal connection packet flow is as follows:
 
-- *Client* sends a TCP *SYN* (SYNchronize) packet to *Server*
-- *Server* receives *Client*'s *SYN*
+- **Client** sends a TCP **SYN** (SYNchronize) packet to **Server**
+- **Server** receives **Client**'s **SYN**
 
-- *Server* sends a *SYN-ACK* (SYNchronize ACKnowledgement) packet to *Client*
-- *Client* receives *Server*'s *SYN-ACK*
+- **Server** sends a **SYN-ACK** (SYNchronize ACKnowledgement) packet to **Client**
+- **Client** receives **Server**'s **SYN-ACK**
 
-- *Client* sends *ACK* (ACKnowledge) packet to *Server*
-- *Server* receives *Client*'s *ACK*
+- **Client** sends **ACK** (ACKnowledge) packet to **Server**
+- **Server** receives **Client**'s **ACK**
 
-TCP connection is *ESTABLISHED*
-*Client* and *Server* interchange data and *ACK* packets
-*Client* wants to close connection, then:
+TCP connection is **ESTABLISHED**
 
-- *Client* sends *FIN* (FINish) packet to *Server*
-- *Server* receives *Client*'s *FIN*
+**Client** and **Server** interchange data and **ACK** packets
 
-- *Server* sends a *FIN-ACK* (FINish ACKnowledge) packet to *Client*
-- *Client* receives *Server*'s *FIN-ACK*
+**Client** wants to close connection, then:
 
-TCP connection is *CLOSED*
+- **Client** sends **FIN** (FINish) packet to **Server**
+- **Server** receives **Client**'s **FIN**
 
-TCP starvation attack works by blocking transmission of *FIN* and *RST* packets from client to server,
+- **Server** sends a **FIN-ACK** (FINish ACKnowledge) packet to **Client**
+- **Client** receives **Server**'s **FIN-ACK**
+
+TCP connection is **CLOSED**
+
+TCP starvation attack works by blocking transmission of **FIN** and **RST** packets from client to server,
 opening as many connections as possible and then closing it from the point of view of the client,
-as the client wont receive the *FIN-ACK* packets from the server, we lower the kernel TCP timeout values
+as the client wont receive the **FIN-ACK** packets from the server, we lower the kernel TCP timeout values
 to recycle connections as soon as possible while the server thinks these connections are still open.
 
 A TCP starvation attack packet flow is as follows:
 
-- *Client* sends a TCP *SYN* (SYNchronize) packet to *Server*
-- *Server* receives *Client*'s *SYN*
+- **Client** sends a TCP **SYN** (SYNchronize) packet to **Server**
+- **Server** receives **Client**'s **SYN**
 
-- *Server* sends a *SYN-ACK* (SYNchronize ACKnowledgement) packet to *Client*
-- *Client* receives *Server*'s *SYN-ACK*
+- **Server** sends a **SYN-ACK** (SYNchronize ACKnowledgement) packet to **Client**
+- **Client** receives **Server**'s **SYN-ACK**
 
-- *Client* sends *ACK* (ACKnowledge) packet to *Server*
-- *Server* receives *Client*'s *ACK*
+- **Client** sends **ACK** (ACKnowledge) packet to **Server**
+- **Server** receives **Client**'s **ACK**
 
-TCP connection is *ESTABLISHED*
-*Client* wants to close connection, then:
+TCP connection is **ESTABLISHED**
+	
+**Client** wants to close connection, then:
 
-- *Client* OS try to send *FIN* (FINish) packet to *Server*, but is blocked by iptables
-- *Server* dont receive anything, letting the connection *ESTABLISHED*
+- **Client** OS try to send **FIN** (FINish) packet to **Server**, but is blocked by iptables
+- **Server** dont receive anything, letting the connection **ESTABLISHED**
 
-- *Client*'s connection is in *FIN_WAIT1* state
-- After short timeout that we have tuned at the client, *Client*'s connection is *CLOSED* and resources are deallocated
-- *Server*'s connection is still *ESTABLISHED*
-- After *Server*'s established connection timeout or application timeout, *Server* close the connection
+- **Client**'s connection is in **FIN_WAIT1** state
+- After short timeout that we have tuned at the client, **Client**'s connection is **CLOSED** and resources are deallocated
+- **Server**'s connection is still **ESTABLISHED**
+- After **Server**'s established connection timeout or application timeout, **Server** close the connection
 
 On unprotected servers this cause a big resource allocation to serve that requests, causing high CPU and
 memory usage rendering the service unusable and in some cases killing the service application by the OS
