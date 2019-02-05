@@ -101,7 +101,7 @@ iptables -I INPUT -p tcp --syn -m hashlimit --hashlimit-above 20/s --hashlimit-b
 
 Limit number of simultaneous established connections per client to a reasonable value:
 ```
-iptables -I INPUT -p tcp --syn --dport 80 -m connlimit --connlimit-above 200 -j DROP
+iptables -I INPUT -p tcp --syn -m connlimit --connlimit-above 200 -j DROP
 ```
 
 ## TODOs
